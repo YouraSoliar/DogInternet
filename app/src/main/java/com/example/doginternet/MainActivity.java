@@ -39,21 +39,30 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         initView();
-        initAction();
 
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
-        loadImage();
-    }
-
-    private void initView() {
-        progressBar = findViewById(R.id.progressBar);
-        button = findViewById(R.id.button);
-        imageView = findViewById(R.id.imageView);
-    }
-
-    private void loadImage() {
-        progressBar.setVisibility(View.VISIBLE);
         viewModel.loadDogImage();
+
+        viewModel.getIsLoading().observe(this, new Observer<Boolean>() {
+            @Override
+            public void onChanged(Boolean isLoading) {
+                if (isLoading) {
+                    progressBar.setVisibility(View.VISIBLE);
+                } else {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        viewModel.getIsInternet().observe(this, new Observer<Boolean>() {
+            @Override
+            public void onChanged(Boolean isInternet) {
+                if (!isInternet) {
+                    Toast.makeText(MainActivity.this, "No Internet", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         viewModel.getDogImage().observe(this, new Observer<DogImage>() {
             @Override
             public void onChanged(DogImage dogImage) {
@@ -61,15 +70,17 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
             }
         });
-    }
-
-    private void initAction() {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                loadImage();
+                viewModel.loadDogImage();
             }
         });
     }
 
+    private void initView() {
+        progressBar = findViewById(R.id.progressBar);
+        button = findViewById(R.id.button);
+        imageView = findViewById(R.id.imageView);
+    }
 }

@@ -1,6 +1,9 @@
 package com.example.doginternet;
 
 import android.app.Application;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
@@ -23,6 +26,7 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Action;
 import io.reactivex.rxjava3.functions.Consumer;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
@@ -33,9 +37,19 @@ public class MainViewModel extends AndroidViewModel {
     private static final String KEY_STATUS = "status";
     private MutableLiveData<DogImage> dogImage = new MutableLiveData<>();
     private CompositeDisposable compositeDisposable = new CompositeDisposable();
+    private MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
+    private MutableLiveData<Boolean> isInternet = new MutableLiveData<>();
 
     public MainViewModel(@NonNull Application application) {
         super(application);
+    }
+
+    public LiveData<Boolean> getIsLoading() {
+        return isLoading;
+    }
+
+    public LiveData<Boolean> getIsInternet() {
+        return isInternet;
     }
 
     public LiveData<DogImage> getDogImage() {
@@ -46,6 +60,19 @@ public class MainViewModel extends AndroidViewModel {
         Disposable disposable = loadDogImageRx()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe(new Consumer<Disposable>() {
+                    @Override
+                    public void accept(Disposable disposable) throws Throwable {
+                        isLoading.setValue(true);
+                        isInternet.setValue(true);
+                    }
+                })
+                .doAfterTerminate(new Action() {
+                    @Override
+                    public void run() throws Throwable {
+                        isLoading.setValue(false);
+                    }
+                })
                 .subscribe(new Consumer<DogImage>() {
                     @Override
                     public void accept(DogImage image) throws Throwable {
@@ -54,7 +81,7 @@ public class MainViewModel extends AndroidViewModel {
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) throws Throwable {
-
+                        isInternet.setValue(false);
                     }
                 });
         compositeDisposable.add(disposable);
@@ -67,28 +94,6 @@ public class MainViewModel extends AndroidViewModel {
     }
 
     private Single<DogImage> loadDogImageRx() {
-        return Single.fromCallable(new Callable<DogImage>() {
-            @Override
-            public DogImage call() throws Exception {
-                    URL url = new URL(BASE_URL);
-                    HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-                    InputStream inputStream = urlConnection.getInputStream();
-                    InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-                    BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-                    String result;
-                    StringBuilder data = new StringBuilder();
-                    do {
-                        result = bufferedReader.readLine();
-                        if (result != null) {
-                            data.append(result);
-                        }
-                    } while (result != null);
-
-                    JSONObject jsonObject = new JSONObject(data.toString());
-                    String message = jsonObject.getString(KEY_MESSAGE);
-                    String status = jsonObject.getString(KEY_STATUS);
-                    return new DogImage(message, status);
-            }
-        });
+        return ApiFactory.getApiService().loadDogImage();
     }
 }
